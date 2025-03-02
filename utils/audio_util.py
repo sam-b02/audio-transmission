@@ -1,6 +1,8 @@
 import pyaudio
 import numpy as np
 
+#TO ADD - CACHING OF PARTICULAR FREQUENCIES, STOP CLOSING AND REOPENING STREAM
+
 def play_tone(frequency=1000, duration=3, volume=0.5):
 
     p = pyaudio.PyAudio()
