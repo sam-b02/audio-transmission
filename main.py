@@ -7,4 +7,8 @@ if mode == "T":
     image = image_encoding.encode_image(input(r"please enter image path"), True)
     print("image has been successfully encoded!")
 
-    audio_util.play_tone(1000, 1)
+    print("sending out engagement signal...")
+
+    for i in range(0,4):
+        audio_util.play_tone(150, 0.5)
+        audio_util.play_tone(650, 0.5)
