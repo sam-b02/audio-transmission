@@ -1,8 +1,7 @@
-def image_encoding(path):
-    return None
+from utils import image_encoding
 
-def audio_utils():
-    return None
+mode = input("Do you want to (T)ransmit or (R)ecieve?")
 
-def protocol():
-    return None
+if mode == "T":
+    image = image_encoding.encode_image(input(r"please enter image path"), True)
+    print("image has been successfully encoded!")
