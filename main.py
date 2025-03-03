@@ -9,6 +9,5 @@ if mode == "T":
 
     print("sending out engagement signal...")
 
-    for i in range(0,4):
-        audio_util.play_tone(150, 0.5)
-        audio_util.play_tone(650, 0.5)
+    audio_util.play_tone(850, 0.5)
+    audio_util.play_tone(650, 0.5)
