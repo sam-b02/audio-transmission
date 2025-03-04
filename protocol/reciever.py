@@ -5,14 +5,12 @@ def receive(audio_util):
     detected_signal = False
     
     while not detected_signal:
-        detected_signal = audio_util.listen_for_tones([850, 650], duration=5)
+        detected_signal = audio_util.listen_for_tones([850], duration=5)
         
         if detected_signal:
             print("Engagement signal detected!")
             print("Sending acknowledgment...")
-            audio_util.play_tone(750, 0.5)
-
-            time.sleep(0.25)
+            audio_util.play_tone(750, 1)
             
             ack_detected = audio_util.listen_for_tones([750], duration=3)
             if ack_detected:
