@@ -1,72 +1,77 @@
 import pyaudio
 import numpy as np
 
-#TO ADD - CACHING OF PARTICULAR FREQUENCIES, STOP CLOSING AND REOPENING STREAM
+class AudioManager:
+    def __init__(self, sample_rate):
+        self.sample_rate = sample_rate
+        self.pyaudio = pyaudio.PyAudio()
+        self.output_stream = None
+        self.input_stream = None
+        self.tone_cache = {}
+    
+    def generate_tone(self,frequency, duration, volume=0.5):
+        cache_key = (frequency, duration, volume)
+        if cache_key not in self.tone_cache:
+            samples = int(duration * self.sample_rate)
+            t = np.linspace(0, duration, samples, False)
+            tone = volume * np.sin(2 * np.pi * frequency * t)
+            audio_data = tone.astype(np.float32).tobytes()
+            self.tone_cache[cache_key] = audio_data
+        return self.tone_cache[cache_key]
+    
+    def play_tone(self,frequency, duration, volume=0.5):
+        if not self.output_stream:
+            self.output_stream = self.pyaudio.open(
+                format=pyaudio.paFloat32,
+                channels=1,
+                rate=self.sample_rate,
+                output=True
+            )
+        
+        audio_data = self.generate_tone(frequency, duration, volume)
+        self.output_stream.write(audio_data)
+        print(f"Played {frequency}Hz tone for {duration} seconds")
 
-def play_tone(frequency=1000, duration=3, volume=0.5):
-
-    p = pyaudio.PyAudio()
-
-    sample_rate = 44100  # CD quality
-    samples = int(duration * sample_rate)
-
-    t = np.linspace(0, duration, samples, False)
-    tone = volume * np.sin(2 * np.pi * frequency * t)
+    def listen_for_tones(self, target_frequencies, duration=5, threshold=0.5):
+        """Listen for specific frequencies, reusing input stream"""
+        # Open input stream if not already open
+        if not self.input_stream:
+            self.input_stream = self.pyaudio.open(
+                format=pyaudio.paFloat32,
+                channels=1,
+                rate=self.sample_rate,
+                input=True,
+                frames_per_buffer=1024
+            )
+        
+        # Read frames
+        frames = []
+        for _ in range(0, int(self.sample_rate / 1024 * duration)):
+            data = self.input_stream.read(1024)
+            frames.append(data)
+        
+        # Convert frames to numpy array for processing
+        signal = np.frombuffer(b''.join(frames), dtype=np.float32)
+        
+        # FFT frequency detection
+        fft_result = np.abs(np.fft.rfft(signal))
+        freqs = np.fft.rfftfreq(len(signal), 1/self.sample_rate)
+        
+        detected = []
+        for freq in target_frequencies:
+            # Find the closest frequency bin
+            idx = np.argmin(np.abs(freqs - freq))
+            if fft_result[idx] > threshold:
+                detected.append(freq)
+        
+        return detected == target_frequencies
     
-    audio_data = tone.astype(np.float32).tobytes()
-
-    stream = p.open(
-        format=pyaudio.paFloat32,
-        channels=1,
-        rate=sample_rate,
-        output=True
-    )
-
-    stream.write(audio_data)
-
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-    
-    print(f"Played {frequency}Hz tone for {duration} seconds")
-
-def listen_for_tones(target_frequencies, duration=5, threshold=0.5):
-    """Listen for specific frequencies in the audio input."""
-    p = pyaudio.PyAudio()
-    
-    sample_rate = 44100
-    chunk_size = 1024
-    
-    stream = p.open(
-        format=pyaudio.paFloat32,
-        channels=1,
-        rate=sample_rate,
-        input=True,
-        frames_per_buffer=chunk_size
-    )
-    
-    frames = []
-    for i in range(0, int(sample_rate / chunk_size * duration)):
-        data = stream.read(chunk_size)
-        frames.append(data)
-    
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-    
-    # Convert frames to numpy array for processing
-    signal = np.frombuffer(b''.join(frames), dtype=np.float32)
-    
-    # Use FFT to detect frequencies
-    # This is a simplified approach - you might need more robust detection
-    fft_result = np.abs(np.fft.rfft(signal))
-    freqs = np.fft.rfftfreq(len(signal), 1/sample_rate)
-    
-    detected = []
-    for freq in target_frequencies:
-        # Find the closest frequency bin
-        idx = np.argmin(np.abs(freqs - freq))
-        if fft_result[idx] > threshold:
-            detected.append(freq)
-    
-    return detected == target_frequencies
+    def close(self):
+        """Close all streams and PyAudio instance"""
+        if self.output_stream:
+            self.output_stream.stop_stream()
+            self.output_stream.close()
+        if self.input_stream:
+            self.input_stream.stop_stream()
+            self.input_stream.close()
+        self.pyaudio.terminate()
