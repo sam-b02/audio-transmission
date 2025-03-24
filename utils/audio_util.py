@@ -1,10 +1,12 @@
 import numpy as np
 import pyaudio
+import wave
 
 class AudioManager:
-    def __init__(self, sample_rate=44100, chunk_size=1024):
+    def __init__(self, sample_rate=44100, chunk_size=1024, record_file="recorded_audio.wav"):
         self.sample_rate = sample_rate
         self.chunk_size = chunk_size
+        self.record_file = record_file
         self.pyaudio = pyaudio.PyAudio()
         self.tone_cache = {}
         
@@ -39,28 +41,43 @@ class AudioManager:
         print(f"Played {frequency}Hz tone for {duration} seconds")
     
     def listen_for_tones(self, target_frequencies, duration=3, tolerance=10):
-        """Listen for specific frequencies within a given duration."""
         print(f"Listening for {target_frequencies} Hz for {duration} seconds...")
         num_chunks = int((self.sample_rate / self.chunk_size) * duration)
         target_frequencies = set(target_frequencies)
+        frames = []
         
         for _ in range(num_chunks):
-            audio_data = np.frombuffer(self.input_stream.read(self.chunk_size), dtype=np.int16)
-            fft_result = np.fft.rfft(audio_data)
-            freqs = np.fft.rfftfreq(len(audio_data), d=1/self.sample_rate)
+            audio_data = self.input_stream.read(self.chunk_size)
+            frames.append(audio_data)
             
-            peak_freq = freqs[np.argmax(np.abs(fft_result))]
+            audio_array = np.frombuffer(audio_data, dtype=np.int16)
+            fft_result = np.fft.rfft(audio_array)
+            freqs = np.fft.rfftfreq(len(audio_array), d=1/self.sample_rate)
+            
+            magnitude = np.abs(fft_result)
+            peak_freq = freqs[np.argmax(magnitude)]
+            
+            print(f"Detected frequency: {peak_freq:.2f} Hz")
             
             for target in target_frequencies:
                 if abs(peak_freq - target) <= tolerance:
-                    print(f"Detected {peak_freq:.2f} Hz (target: {target} Hz)")
+                    print(f"Matched {peak_freq:.2f} Hz (target: {target} Hz)")
+                    self.save_recording(frames)
                     return True
         
+        self.save_recording(frames)
         print("No matching frequency detected.")
         return False
     
+    def save_recording(self, frames):
+        with wave.open(self.record_file, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(self.pyaudio.get_sample_size(pyaudio.paInt16))
+            wf.setframerate(self.sample_rate)
+            wf.writeframes(b''.join(frames))
+        print(f"Recording saved to {self.record_file}")
+    
     def close(self):
-        """Close all streams and PyAudio instance."""
         if self.output_stream:
             self.output_stream.stop_stream()
             self.output_stream.close()

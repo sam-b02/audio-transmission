@@ -5,7 +5,7 @@ def receive(audio_util):
     detected_signal = False
     
     while not detected_signal:
-        detected_signal = audio_util.listen_for_tones([850], duration=5)
+        detected_signal = audio_util.listen_for_tones([850], duration=3)
         
         if detected_signal:
             print("Engagement signal detected!")
